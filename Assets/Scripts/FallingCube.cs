@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
@@ -12,11 +13,11 @@ public class FallingCube : MonoBehaviour
     private Rigidbody _rigidbody;
     private Renderer _renderer;
     private List<GameObject>_collidedPlanes = new();
-    private bool isDestroying = false;
+    private bool _isDestroying = false;
 
     public event UnityAction<FallingCube> Destroying;
 
-    private void Start()
+    private void Awake()
     {
         _rigidbody = GetComponent<Rigidbody>();
         _renderer = GetComponent<Renderer>();
@@ -33,17 +34,18 @@ public class FallingCube : MonoBehaviour
         _collidedPlanes.Add(collision.gameObject);
         SetRandomColor();
 
-        if (isDestroying)
+        if (_isDestroying)
             return;
 
-        Invoke(nameof(CallDestroyEvent), Random.Range(_minDestroyingDelay, _maxDestroyingDelay));
-        isDestroying = true;
+        //Invoke(nameof(CallDestroyEvent), Random.Range(_minDestroyingDelay, _maxDestroyingDelay));
+        StartCoroutine(DelayedDestroy());
+        _isDestroying = true;
     }
 
-    private void CallDestroyEvent()
+    /*private void CallDestroyEvent()
     {
         Destroying?.Invoke(this);
-    }
+    }*/
 
     private void SetRandomColor()
     {
@@ -61,6 +63,17 @@ public class FallingCube : MonoBehaviour
         _rigidbody.velocity = Vector3.zero;
         _rigidbody.angularVelocity = Vector3.zero;
         _collidedPlanes.Clear();
-        isDestroying = false;
+        _isDestroying = false;
+    }
+
+    private IEnumerator DelayedDestroy()
+    {
+        var wait = new WaitForSeconds(Random.Range(_minDestroyingDelay, _maxDestroyingDelay));
+
+        yield return wait;
+
+        Destroying?.Invoke(this);
+
+        yield break;
     }
 }
