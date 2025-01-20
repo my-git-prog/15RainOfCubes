@@ -1,27 +1,15 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 
-[RequireComponent(typeof(Rigidbody))]
-[RequireComponent(typeof(Renderer))]
-public class FallingCube : MonoBehaviour
+public class FallingCube : SpawnableObject<FallingCube>
 {
-    [SerializeField] private float _minDestroyingDelay = 2f;
-    [SerializeField] private float _maxDestroyingDelay = 5f;
-
-    private Rigidbody _rigidbody;
-    private Renderer _renderer;
     private List<GameObject>_collidedPlanes = new();
     private bool _isDestroying = false;
 
-    public event UnityAction<FallingCube> Destroying;
-
-    private void Awake()
-    {
-        _rigidbody = GetComponent<Rigidbody>();
-        _renderer = GetComponent<Renderer>();
-    }
+    public override event Action<FallingCube> Destroying;
 
     private void OnCollisionEnter(Collision collision)
     {
@@ -37,38 +25,35 @@ public class FallingCube : MonoBehaviour
         if (_isDestroying)
             return;
 
-        //Invoke(nameof(CallDestroyEvent), Random.Range(_minDestroyingDelay, _maxDestroyingDelay));
         StartCoroutine(DelayedDestroy());
         _isDestroying = true;
     }
 
-    /*private void CallDestroyEvent()
-    {
-        Destroying?.Invoke(this);
-    }*/
-
     private void SetRandomColor()
     {
-        _renderer.material.color = Random.ColorHSV();
+        SetColor(UnityEngine.Random.ColorHSV());
+        Renderer.material.color = new Color(Renderer.material.color.r, Renderer.material.color.g,
+            Renderer.material.color.b, UnityEngine.Random.value);
     }
 
-    public void SetColor(Color color)
+    private void SetColor(Color color)
     {
-        _renderer.material.color = color;
+        Renderer.material.color = color;
     }
 
-    public void ResetParametres()
+    public override void ResetParametres()
     {
+        SetColor(DefaultColor);
         transform.rotation = Quaternion.identity;
-        _rigidbody.velocity = Vector3.zero;
-        _rigidbody.angularVelocity = Vector3.zero;
+        Rigidbody.velocity = Vector3.zero;
+        Rigidbody.angularVelocity = Vector3.zero;
         _collidedPlanes.Clear();
         _isDestroying = false;
     }
 
     private IEnumerator DelayedDestroy()
     {
-        var wait = new WaitForSeconds(Random.Range(_minDestroyingDelay, _maxDestroyingDelay));
+        var wait = new WaitForSeconds(UnityEngine.Random.Range(MinDestroyingDelay, MaxDestroyingDelay));
 
         yield return wait;
 

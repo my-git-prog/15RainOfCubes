@@ -1,85 +1,68 @@
-using System.Collections;
+using System;
 using UnityEngine;
 using UnityEngine.Pool;
 
-public class Spawner : MonoBehaviour
+public class Spawner <T> : MonoBehaviour where T : SpawnableObject <T>
 {
-    [SerializeField] private FallingCube _cubePrefab;
-    [SerializeField] private Color _defaultColor = Color.white;
-    [SerializeField] private float _minSpawnX = -10;
-    [SerializeField] private float _maxSpawnX = 10;
-    [SerializeField] private float _minSpawnY = 5;
-    [SerializeField] private float _maxSpawnY= 15;
-    [SerializeField] private float _minSpawnZ = -10;
-    [SerializeField] private float _maxSpawnZ = 10;
-    [SerializeField] private float _repeatRate = 0.05f;
+    [SerializeField] private T _objectPrefab;
     [SerializeField] private int _poolCapacity = 100;
     [SerializeField] private int _poolMaxSize = 150;
-    [SerializeField] private bool _isSpawning = true;
 
-    private ObjectPool<FallingCube> _pool;
+    [SerializeField] protected bool IsSpawning = true;
+
+    private int _countAll = 0;
+    private ObjectPool<T> _pool;
+    
+    public event Action<Vector3> ObjectReleased;
+    public event Action CountsUpdated;
+
+    public int CountAll => _countAll;
+    public int CountCreated => _pool.CountAll;
+    public int CountActive => _pool.CountActive;
 
     private void Awake()
     {
-        _pool = new ObjectPool<FallingCube>(
-            createFunc: () => CreateFunc(),
-            actionOnGet: (obj) => ActionOnGet(obj),
+        _pool = new ObjectPool<T>(
+            createFunc: () => CreateNewObjectInstance(),
+            actionOnGet: (obj) => SpawnObjectInstance(obj),
             actionOnRelease: (obj) => obj.gameObject.SetActive(false),
-            actionOnDestroy: (obj) => ActionOnDestroy(obj),
+            actionOnDestroy: (obj) => DestroyObjectInstance(obj),
             collectionCheck: true,
             defaultCapacity: _poolCapacity,
             maxSize: _poolMaxSize);
     }
 
-    private FallingCube CreateFunc()
+    private T CreateNewObjectInstance()
     {
-        FallingCube newCube = Instantiate(_cubePrefab);
-        newCube.Destroying += DestroyingCube;
+        T newObj = Instantiate(_objectPrefab);
+        newObj.Destroying += ReleaseObjectInstance;
 
-        return newCube;
+        return newObj;
     }
 
-    private void DestroyingCube(FallingCube cube)
+    private void ReleaseObjectInstance(T obj)
     {
-        _pool.Release(cube);
+        ObjectReleased?.Invoke(obj.transform.position);
+        _pool.Release(obj);
+        CountsUpdated?.Invoke();
     }
 
-    private void ActionOnGet(FallingCube cube)
+    private void SpawnObjectInstance(T obj)
     {
-        cube.transform.position = new Vector3(Random.Range(_minSpawnX, _maxSpawnX), 
-            Random.Range(_minSpawnY, _maxSpawnY), Random.Range(_minSpawnZ, _maxSpawnZ));
-        cube.ResetParametres();
-        cube.SetColor(_defaultColor);
-        cube.gameObject.SetActive(true);
+        obj.gameObject.SetActive(true);
+        obj.ResetParametres();
+        CountsUpdated?.Invoke();
     }
 
-    private void Start()
+    protected T GetObjectInstance()
     {
-        //InvokeRepeating(nameof(GetCube), 0.0f, _repeatRate);
-        StartCoroutine(CreatingCubes());
+        _countAll++;
+        return _pool.Get();
     }
 
-    private void GetCube()
+    private void DestroyObjectInstance(T obj)
     {
-        _pool.Get();
-    }
-
-    private void ActionOnDestroy(FallingCube cube)
-    {
-        cube.Destroying -= DestroyingCube;
-        Destroy(cube);
-    }
-
-    private IEnumerator CreatingCubes()
-    {
-        var wait = new WaitForSeconds(_repeatRate);
-
-        while (_isSpawning)
-        {
-            GetCube();
-            yield return wait;
-        }
-
-        yield break;
+        obj.Destroying -= ReleaseObjectInstance;
+        Destroy(obj);
     }
 }
